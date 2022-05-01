@@ -1,0 +1,42 @@
+version: "3.3"
+
+networks:
+    as-ra-network:
+
+services:
+    nginx:
+        image: nginx:stable-alpine
+        container_name: as-ra-nginx
+        ports:
+            - 3001:80
+        volumes:
+            - .:/var/www/project
+            - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+            - ./docker/nginx/logs:/var/log/nginx
+        depends_on:
+            - php
+            - mysql
+        networks:
+            - as-ra-network
+
+    php:
+        build:
+            context: .
+            dockerfile: ./docker/php/Dockerfile
+        container_name: as-ra-php
+        volumes:
+            - .:/var/www/project
+            - ./docker/project.env:/var/www/project/.env.local
+        networks:
+            - as-ra-network
+
+    mysql:
+        image: mysql:5.7
+        container_name: as-ra-mysql
+        volumes:
+            - ./docker/mysql:/var/lib/mysql
+        command: --character-set-server=utf8 --collation-server=utf8_general_ci
+        environment:
+            MYSQL_ROOT_PASSWORD: root
+        networks:
+            - as-ra-network
