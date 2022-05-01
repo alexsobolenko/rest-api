@@ -84,7 +84,6 @@ class TodoController extends AbstractController
     #[Route(path: '', methods: ['GET'], name: 'app.todo.tasks.list')]
     public function listAction(Request $request, EntityManagerInterface $entityManager): Response
     {
-        throw RestApiException::string('Fuck', 421);
         /** @var TaskRepository $taskRepo */
         $taskRepo = $entityManager->getRepository(Task::class);
 
