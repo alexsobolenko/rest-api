@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\DataProvider\EntityPatch;
+use App\Entity\ToDo\Point;
 use App\Entity\ToDo\Task;
 use App\Exception\RestApiException;
 use App\Model\PaginatedDataModel;
@@ -10,6 +11,7 @@ use App\Model\ToDo\TaskPatchApiSchema;
 use App\Model\ToDo\TaskPostApiSchema;
 use App\Normalizer\ToDo\PointNormalizer;
 use App\Normalizer\ToDo\TaskNormalizer;
+use App\Repository\ToDo\PointRepository;
 use App\Repository\ToDo\TaskRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use OpenApi\Annotations as OA;
@@ -19,7 +21,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
-#[Route(path: '/todo/tasks')]
+#[Route(path: '/todo')]
 class TodoController extends AbstractController
 {
     /**
@@ -44,6 +46,12 @@ class TodoController extends AbstractController
      *         description="Search value",
      *         @OA\Schema(type="string")
      *     ),
+     *     @OA\Parameter(
+     *         name="uncompleted",
+     *         in="query",
+     *         description="Uncompleted only",
+     *         @OA\Schema(type="boolean")
+     *     ),
      *     @OA\Response(
      *         response=200,
      *         description="OK",
@@ -52,8 +60,6 @@ class TodoController extends AbstractController
      *             @OA\Property(property="pages", type="integer", example="2"),
      *             @OA\Property(property="limit", type="integer", example="10"),
      *             @OA\Property(property="page", type="integer", example="1"),
-     *             @OA\Property(property="prev", type="integer", example="1"),
-     *             @OA\Property(property="next", type="integer", example="2"),
      *             @OA\Property(property="items", type="array", @OA\Items(
      *                 type="object",
      *                 @OA\Property(property="id", type="string", example="guid"),
@@ -81,19 +87,21 @@ class TodoController extends AbstractController
      * @param EntityManagerInterface $entityManager
      * @return Response
      */
-    #[Route(path: '', methods: ['GET'], name: 'app.todo.tasks.list')]
+    #[Route(path: '/tasks', methods: ['GET'], name: 'app.todo.tasks.list')]
     public function listAction(Request $request, EntityManagerInterface $entityManager): Response
     {
         /** @var TaskRepository $taskRepo */
         $taskRepo = $entityManager->getRepository(Task::class);
-
-        $filter = $request->query->all();
-        $page = $filter['page'] ?? 1;
-        $limit = $filter['limit'] ?? 10;
+        $filter = [
+            'page' => $request->query->getInt('page', 1),
+            'limit' => $request->query->getInt('limit', 10),
+            'content' => $request->query->get('content'),
+            'uncompleted' => $request->query->getBoolean('uncompleted', false),
+        ];
 
         $items = $taskRepo->searchBy($filter);
         $total = $taskRepo->countBy($filter);
-        $payload = new PaginatedDataModel($total, $limit, $page, $items);
+        $payload = new PaginatedDataModel($total, $filter['limit'], $filter['page'], $items);
 
         return $this->json($payload, Response::HTTP_OK, [], [
             TaskNormalizer::CONTEXT_TYPE_KEY => TaskNormalizer::TYPE_LIST,
@@ -146,7 +154,7 @@ class TodoController extends AbstractController
      * @param string $id
      * @return Response
      */
-    #[Route(path: '/{id}', methods: ['GET'], name: 'app.todo.tasks.details')]
+    #[Route(path: '/tasks/{id}', methods: ['GET'], name: 'app.todo.tasks.details')]
     public function detailsAction(Request $request, EntityManagerInterface $entityManager, string $id): Response
     {
         /** @var TaskRepository $taskRepo */
@@ -209,7 +217,7 @@ class TodoController extends AbstractController
      * @param TaskPostApiSchema $schema
      * @return Response
      */
-    #[Route(path: '', methods: ['POST'], name: 'app.todo.tasks.create')]
+    #[Route(path: '/tasks', methods: ['POST'], name: 'app.todo.tasks.create')]
     public function createAction(
         Request $request,
         EntityManagerInterface $entityManager,
@@ -288,7 +296,7 @@ class TodoController extends AbstractController
      * @param string $id
      * @return Response
      */
-    #[Route(path: '/{id}', methods: ['PUT'], name: 'app.todo.tasks.edit')]
+    #[Route(path: '/tasks/{id}', methods: ['PUT'], name: 'app.todo.tasks.edit')]
     public function editAction(
         Request $request,
         EntityManagerInterface $entityManager,
@@ -376,7 +384,7 @@ class TodoController extends AbstractController
      * @return Response
      * @throws RestApiException
      */
-    #[Route(path: '/{id}', methods: ['PATCH'], name: 'app.todo.tasks.patch')]
+    #[Route(path: '/tasks/{id}', methods: ['PATCH'], name: 'app.todo.tasks.patch')]
     public function patchAction(
         Request $request,
         EntityManagerInterface $entityManager,
@@ -453,7 +461,7 @@ class TodoController extends AbstractController
      * @param string $id
      * @return Response
      */
-    #[Route(path: '/{id}', methods: ['DELETE'], name: 'app.todo.tasks.delete')]
+    #[Route(path: '/tasks/{id}', methods: ['DELETE'], name: 'app.todo.tasks.delete')]
     public function deleteAction(Request $request, EntityManagerInterface $entityManager, string $id): Response
     {
         /** @var TaskRepository $taskRepo */
@@ -461,5 +469,55 @@ class TodoController extends AbstractController
         $taskRepo->delete($id);
 
         return $this->json(null);
+    }
+
+    /**
+     * @OA\Get(
+     *     tags={"ToDo App"},
+     *     summary="Point defails",
+     *     @OA\Parameter(
+     *         name="id",
+     *         in="path",
+     *         description="point id",
+     *         required=true,
+     *         @OA\Schema(type="string")
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="OK",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="id", type="string", example="guid"),
+     *             @OA\Property(property="title", type="string", example="string"),
+     *             @OA\Property(property="completed", type="boolean", example="false"),
+     *             @OA\Property(property="created", type="string", example="2010-10-10 10:10:10"),
+     *             @OA\Property(property="updated", type="string", example="2010-10-10 10:10:10")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=500,
+     *         description="Failed",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="timestamp", type="integer", example="150000"),
+     *             @OA\Property(property="status", type="integer", example="400"),
+     *             @OA\Property(property="path", type="string", example="/query/path"),
+     *             @OA\Property(property="errors", type="array", @OA\Items(type="string"))
+     *         )
+     *     )
+     * )
+     * @param Request $request
+     * @param EntityManagerInterface $entityManager
+     * @param string $id
+     * @return Response
+     */
+    #[Route(path: '/points/{id}', methods: ['GET'], name: 'app.todo.points.details')]
+    public function pointAction(Request $request, EntityManagerInterface $entityManager, string $id): Response
+    {
+        /** @var PointRepository $taskRepo */
+        $pointRepo = $entityManager->getRepository(Point::class);
+        $payload = $pointRepo->getById($id);
+
+        return $this->json($payload, Response::HTTP_OK, [], [
+            PointNormalizer::CONTEXT_TYPE_KEY => PointNormalizer::TYPE_DETAILS,
+        ]);
     }
 }

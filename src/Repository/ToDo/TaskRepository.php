@@ -53,6 +53,8 @@ class TaskRepository extends ServiceEntityRepository
     {
         try {
             $qb = $this->buildFilterQuery($filter);
+            $qb->addOrderBy('t.priority', 'ASC');
+            $qb->addOrderBy('t.title', 'ASC');
 
             $page = $filter['page'] ?? 1;
             $limit = $filter['limit'] ?? 10;
@@ -217,19 +219,36 @@ class TaskRepository extends ServiceEntityRepository
 
         $uncompleted = filter_var($filter['uncompleted'] ?? 'false', FILTER_VALIDATE_BOOLEAN);
         if ($uncompleted === true) {
-            $ids = [];
+            $idsUncompleted = [];
             foreach ($this->pointRepo->findAllUncompleted() as $point) {
                 /** @var Point $point */
-                if (!in_array($point->getTask()->getId(), $ids)) {
-                    $ids[] = $point->getTask()->getId();
+                if (!in_array($point->getTask()->getId(), $idsUncompleted)) {
+                    $idsUncompleted[] = $point->getTask()->getId();
                 }
             }
-            $qb->andWhere($qb->expr()->in('t.id', ':ids'));
-            $qb->setParameter('ids', $ids);
-        }
+            
+            $idsWithPoints = [];
+            foreach ($this->pointRepo->findAll() as $point) {
+                /** @var Point $point */
+                if (!in_array($point->getTask()->getId(), $idsWithPoints)) {
+                    $idsWithPoints[] = $point->getTask()->getId();
+                }
+            }
+            $idsWithoutPoints = [];
+            foreach ($this->findAll() as $task) {
+                /** @var Task $task */
+                if (!in_array($task->getId(), $idsWithPoints)) {
+                    $idsWithoutPoints[] = $task->getId();
+                }
+            }
 
-        $qb->addOrderBy('t.priority', 'DESC');
-        $qb->addOrderBy('t.title', 'ASC');
+            $qb->andWhere($qb->expr()->orX(
+                $qb->expr()->in('t.id', ':idsUncompleted'),
+                $qb->expr()->in('t.id', ':idsWithoutPoints')
+            ));
+            $qb->setParameter('idsUncompleted', $idsUncompleted);
+            $qb->setParameter('idsWithoutPoints', $idsWithoutPoints);
+        }
 
         return $qb;
     }

@@ -6,6 +6,7 @@ networks:
 services:
     nginx:
         image: nginx:stable-alpine
+        restart: always
         container_name: as-ra-nginx
         ports:
             - 3001:80

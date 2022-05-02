@@ -11,7 +11,7 @@ class ArrayUtils
     /**
      * @param ConstraintViolationListInterface $object
      * @return array
-     * @throws \Exception
+     * @throws RestApiException
      */
     public static function constraintsToArray(ConstraintViolationListInterface $object): array
     {

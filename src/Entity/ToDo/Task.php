@@ -127,7 +127,10 @@ class Task
      */
     public function getPoints(): Collection
     {
-        return $this->points;
+        $criteria = Criteria::create();
+        $criteria->orderBy(['title' => 'ASC']);
+
+        return $this->points->matching($criteria);
     }
 
     /**

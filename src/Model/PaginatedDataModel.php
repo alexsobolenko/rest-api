@@ -10,8 +10,6 @@ class PaginatedDataModel
     public int $pages;
     public int $limit;
     public int $page;
-    public ?int $prev;
-    public ?int $next;
     public array $items;
     public array $pageItems;
 
@@ -29,25 +27,10 @@ class PaginatedDataModel
         $this->page = $page;
         $this->items = $items;
         $this->pages = 0;
-        $this->prev = null;
-        $this->next = null;
 
         try {
             if ($this->total > 0) {
                 $this->pages = (int) ceil($this->total / $this->limit);
-
-                if ($this->pages > 1) {
-                    if ($this->page !== $this->pages) {
-                        $this->next = $this->page + 1;
-                    }
-
-                    if ($this->page !== 1) {
-                        $this->prev = $this->page - 1;
-                    }
-                } else {
-                    $this->page = 1;
-                }
-
                 if ($this->pages < 5) {
                     for ($i = 2; $i <= $this->pages; $i++) {
                         $this->pageItems[] = $i;

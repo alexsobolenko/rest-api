@@ -38,6 +38,7 @@ class RestApiException extends \Exception
     /**
      * @param ConstraintViolationListInterface $object
      * @return RestApiException
+     * @throws \Exception
      */
     public static function constraints(ConstraintViolationListInterface $object): RestApiException
     {

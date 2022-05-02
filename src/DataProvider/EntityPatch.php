@@ -2,7 +2,7 @@
 
 namespace App\DataProvider;
 
-class EntityPatch
+final class EntityPatch
 {
     public const ADD_POINT = 'add.point';
     public const EDIT_POINT = 'edit.point';

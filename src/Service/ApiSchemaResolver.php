@@ -43,6 +43,7 @@ class ApiSchemaResolver implements ArgumentValueResolverInterface
      * @param Request $request
      * @param ArgumentMetadata $argument
      * @return iterable
+     * @throws RestApiException
      */
     public function resolve(Request $request, ArgumentMetadata $argument): iterable
     {
